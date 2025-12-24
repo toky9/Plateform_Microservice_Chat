@@ -1,7 +1,7 @@
 // conversations/conversations.service.ts
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
+import { PrismaService } from 'src/database/prisma.service';
 
 @Injectable()
 export class ConversationsService {
