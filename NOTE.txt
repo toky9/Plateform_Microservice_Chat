@@ -1,6 +1,22 @@
+1️⃣ Installer NestJS CLI (si pas déjà)
+npm install -g @nestjs/cli
+
+
+Vérifie la version :
+
+nest --version
+
+2️⃣ Créer le projet NestJS
+nest new chat-service
+
+
+Choisis npm ou yarn selon ton projet
+
+Option Yes pour ESLint / Prettier si tu veux
+
 3️⃣ Installer les dépendances essentielles
 Prisma + PostgreSQL
-
+cd chat-service
 npm install @prisma/client
 npm install -D prisma
 npm install @nestjs/config
@@ -8,18 +24,33 @@ npm install @nestjs/jwt passport-jwt @nestjs/passport passport
 npm install @nestjs/platform-socket.io
 npm install multer @nestjs/platform-express
 
+npm install --save multer
+npm install --save-dev @types/multer
+
+
 4️⃣ Initialiser Prisma
 npx prisma init
+
+
 Crée le fichier .env avec DATABASE_URL
+
 Crée le dossier prisma/schema.prisma
 
+5️⃣ Modifier schema.prisma
+
+Copie le modèle que je t’ai fourni précédemment (Conversation, Message, etc.)
 
 6️⃣ Générer le client Prisma
 npx prisma generate
+
+
 Vérifie que node_modules/.prisma/client est créé
 
 7️⃣ Migrer la base de données
 npx prisma migrate dev --name init
+
+
+Cette commande crée la base si elle n’existe pas et applique les tables
 
 8️⃣ Créer les modules NestJS
 nest generate module prisma
@@ -29,3 +60,62 @@ nest generate module conversations
 nest generate module messages
 nest generate module upload
 nest generate module websocket
+
+9️⃣ Créer les controllers
+nest generate controller conversations
+nest generate controller messages
+nest generate controller upload
+
+🔟 Créer les DTOs
+
+Dans chaque module (conversations/dto, messages/dto), crée tes fichiers DTO selon ton frontend
+Exemple :
+
+// messages/dto/create-message.dto.ts
+export class CreateMessageDto {
+  conversationId: string
+  senderId: string
+  content: string
+  type?: 'text' | 'image' | 'file'
+  fileName?: string
+  fileSize?: string
+  replyTo?: { id: string; senderId: string; content: string }
+}
+
+1️⃣1️⃣ Créer le WebSocket Gateway
+nest generate gateway websocket/chat
+
+
+Mets le code que je t’ai fourni précédemment dans chat.gateway.ts
+
+1️⃣2️⃣ Configurer .env
+
+Exemple :
+
+DATABASE_URL="postgresql://user:password@localhost:5432/chatdb?schema=public"
+JWT_SECRET="ton_secret_jwt"
+PORT=3001
+
+1️⃣3️⃣ Lancer le microservice
+npm run start:dev
+
+
+L’API devrait tourner sur http://localhost:3001/api
+
+Le WebSocket sur ws://localhost:3001/api/ws
+
+1️⃣4️⃣ (Optionnel) Visualiser la base avec Prisma Studio
+npx prisma studio
+
+
+Tu peux voir et éditer tes Users, Conversations, Messages
+
+✅ Résultat attendu
+
+API REST compatible avec ton chat.service.ts
+
+WebSocket fonctionnel
+
+Prisma prêt production
+
+JWT prêt pour sécuriser ton chat
