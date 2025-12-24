@@ -1,0 +1,31 @@
+3️⃣ Installer les dépendances essentielles
+Prisma + PostgreSQL
+
+npm install @prisma/client
+npm install -D prisma
+npm install @nestjs/config
+npm install @nestjs/jwt passport-jwt @nestjs/passport passport
+npm install @nestjs/platform-socket.io
+npm install multer @nestjs/platform-express
+
+4️⃣ Initialiser Prisma
+npx prisma init
+Crée le fichier .env avec DATABASE_URL
+Crée le dossier prisma/schema.prisma
+
+
+6️⃣ Générer le client Prisma
+npx prisma generate
+Vérifie que node_modules/.prisma/client est créé
+
+7️⃣ Migrer la base de données
+npx prisma migrate dev --name init
+
+8️⃣ Créer les modules NestJS
+nest generate module prisma
+nest generate service prisma
+nest generate module users
+nest generate module conversations
+nest generate module messages
+nest generate module upload
+nest generate module websocket
