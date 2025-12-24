@@ -7,11 +7,8 @@ import { UsersModule } from './modules/users/users.module';
 import { ConversationsModule } from './modules/conversations/conversations.module';
 import { MessagesModule } from './modules/messages/messages.module';
 import { UploadModule } from './modules/upload/upload.module';
-import { AuthModule } from './auth/auth.module';
-
 @Module({
   imports: [
-    AuthModule,
     DatabaseModule,
     UsersModule,
     ConversationsModule,

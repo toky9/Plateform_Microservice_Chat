@@ -7,7 +7,7 @@ import { UpdateMessageDto } from './dto/update-message.dto';
 
 // messages/messages.controller.ts
 @UseGuards(JwtAuthGuard)
-@Controller('api/messages')
+@Controller('messages')
 export class MessagesController {
   constructor(
     private service: MessagesService,

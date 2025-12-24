@@ -6,7 +6,7 @@ import { JwtAuthGuard } from 'src/auth/jwt.guard';
 
 // conversations/conversations.controller.ts
 @UseGuards(JwtAuthGuard)
-@Controller('api/conversations')
+@Controller('conversations')
 export class ConversationsController {
   constructor(private service: ConversationsService) {}
 
