@@ -1,7 +1,8 @@
 import { Body, Controller, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from 'src/auth/jwt.guard';
+
 import { ConversationsService } from './conversations.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
+import { JwtAuthGuard } from 'src/auth/jwt.guard';
 
 // conversations/conversations.controller.ts
 @UseGuards(JwtAuthGuard)
