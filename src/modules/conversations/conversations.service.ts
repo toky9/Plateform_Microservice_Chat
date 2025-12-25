@@ -16,10 +16,14 @@ export class ConversationsService {
         },
       },
       include: {
-        participants: true,
+        participants: {
+          include: {
+            user: true, // <-- déjà correct
+          },
+        },
         messages: {
           orderBy: { createdAt: 'desc' },
-          take: 1, // dernier message
+          take: 1,
         },
       },
       orderBy: { createdAt: 'desc' },
@@ -27,9 +31,14 @@ export class ConversationsService {
 
     return conversations.map((conv) => ({
       id: conv.id,
-      participants: conv.participants.map((p) => ({ id: p.userId })),
-      lastMessage: conv.messages[0] || null,
-      unreadCount: 0, // à calculer selon readBy
+      participants: conv.participants.map((p) => ({
+        id: p.user.id,
+        name: p.user.name,
+        avatar: p.user.avatar,
+        status: p.user.status,
+      })),
+      lastMessage: conv.messages[0] ?? null,
+      unreadCount: 0, // à calculer plus tard
       isGroup: conv.isGroup,
       groupName: conv.groupName,
       groupAvatar: conv.groupAvatar,
@@ -72,7 +81,7 @@ export class ConversationsService {
     }
 
     // 2. Création de la conversation
-    const conversation = await this.prisma.conversation.create({
+    const conv = await this.prisma.conversation.create({
       data: {
         isGroup: dto.isGroup,
         groupName: dto.groupName,
@@ -89,6 +98,22 @@ export class ConversationsService {
         },
       },
     });
+
+    const conversation = {
+      id: conv.id,
+      participants: conv.participants.map((p) => ({
+        id: p.user.id,
+        name: p.user.name,
+        avatar: p.user.avatar,
+        status: p.user.status,
+      })),
+      unreadCount: 0, // à calculer plus tard
+      isGroup: conv.isGroup,
+      groupName: conv.groupName,
+      groupAvatar: conv.groupAvatar,
+      muted: conv.muted,
+      archived: conv.archived,
+    };
 
     return conversation;
   }
