@@ -25,9 +25,9 @@ export class ConversationsService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return conversations.map(conv => ({
+    return conversations.map((conv) => ({
       id: conv.id,
-      participants: conv.participants.map(p => ({ id: p.userId })),
+      participants: conv.participants.map((p) => ({ id: p.userId })),
       lastMessage: conv.messages[0] || null,
       unreadCount: 0, // à calculer selon readBy
       isGroup: conv.isGroup,
@@ -39,18 +39,57 @@ export class ConversationsService {
   }
 
   // Créer une conversation
+  // async create(dto: CreateConversationDto) {
+  //   const conversation = await this.prisma.conversation.create({
+  //     data: {
+  //       isGroup: dto.isGroup,
+  //       groupName: dto.groupName,
+  //       groupAvatar: dto.groupAvatar,
+  //       participants: {
+  //         create: dto.participants.map(user => ({ user })),
+  //       },
+  //     },
+  //     include: { participants: true },
+  //   });
+  //   return conversation;
+  // }
+
   async create(dto: CreateConversationDto) {
+    // 1. UPSERT des users (base CHAT)
+    for (const participant of dto.participants) {
+      await this.prisma.user.upsert({
+        where: { id: participant.id },
+        update: {
+          name: participant.name,
+          avatar: participant.avatarUrl,
+        },
+        create: {
+          id: participant.id,
+          name: participant.name,
+          avatar: participant.avatarUrl,
+        },
+      });
+    }
+
+    // 2. Création de la conversation
     const conversation = await this.prisma.conversation.create({
       data: {
         isGroup: dto.isGroup,
         groupName: dto.groupName,
         groupAvatar: dto.groupAvatar,
         participants: {
-          create: dto.participants.map(userId => ({ userId })),
+          create: dto.participants.map((p) => ({
+            userId: p.id, // ⚠️ PAS de connect ici
+          })),
         },
       },
-      include: { participants: true },
+      include: {
+        participants: {
+          include: { user: true },
+        },
+      },
     });
+
     return conversation;
   }
 

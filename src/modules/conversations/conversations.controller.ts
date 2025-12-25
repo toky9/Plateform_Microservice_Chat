@@ -4,8 +4,8 @@ import { ConversationsService } from './conversations.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { JwtAuthGuard } from 'src/auth/jwt.guard';
 
-// conversations/conversations.controller.ts
-@UseGuards(JwtAuthGuard)
+
+// @UseGuards(JwtAuthGuard)
 @Controller('conversations')
 export class ConversationsController {
   constructor(private service: ConversationsService) {}

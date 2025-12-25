@@ -5,8 +5,7 @@ import { ChatGateway } from 'src/websocket/chat/chat.gateway';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
 
-// messages/messages.controller.ts
-@UseGuards(JwtAuthGuard)
+// @UseGuards(JwtAuthGuard)
 @Controller('messages')
 export class MessagesController {
   constructor(
