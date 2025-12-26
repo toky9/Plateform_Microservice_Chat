@@ -84,13 +84,13 @@ export class ConversationsService {
         where: { id: participant.id },
         update: {
           name: participant.name,
-          avatarUrl: participant.avatar,
+          avatarUrl: participant.avatarUrl,
           status: participant.status,
         },
         create: {
           id: participant.id,
           name: participant.name,
-          avatarUrl: participant.avatar,
+          avatarUrl: participant.avatarUrl,
           status: participant.status!,
         },
       });

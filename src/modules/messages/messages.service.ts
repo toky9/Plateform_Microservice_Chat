@@ -1,10 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/database/prisma.service';
-import { AddReactionDto } from './dto/add-reaction.dto';
-import { RemoveReactionDto } from './dto/remove-reaction.dto';
-import { UpdateMessageDto } from './dto/update-message.dto';
 import { ChatGateway } from 'src/websocket/chat/chat.gateway';
-import { SendMessageDto, TogglePinDto } from './dto/send_message_dto';
+import { AddReactionDto, RemoveReactionDto, SendMessageDto, TogglePinDto, UpdateMessageDto } from './dto/send_message_dto';
 
 @Injectable()
 export class MessagesService {

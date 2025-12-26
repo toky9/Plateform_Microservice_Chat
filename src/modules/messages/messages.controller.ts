@@ -11,11 +11,8 @@ import {
 } from '@nestjs/common';
 
 import { MessagesService } from './messages.service';
-import { AddReactionDto } from './dto/add-reaction.dto';
-import { RemoveReactionDto } from './dto/remove-reaction.dto';
-import { UpdateMessageDto } from './dto/update-message.dto';
 import { JwtAuthGuard } from 'src/auth/jwt.guard';
-import { MarkAsReadDto, SendMessageDto, TogglePinDto } from './dto/send_message_dto';
+import { AddReactionDto, MarkAsReadDto, RemoveReactionDto, SendMessageDto, TogglePinDto, UpdateMessageDto } from './dto/send_message_dto';
 
 // @UseGuards(JwtAuthGuard)
 @Controller('messages')

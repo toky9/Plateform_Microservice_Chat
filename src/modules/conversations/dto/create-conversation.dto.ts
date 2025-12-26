@@ -1,7 +1,7 @@
 export class ConversationParticipantDto {
   id: string; // userId métier
   name: string;
-  avatar?: string;
+  avatarUrl?: string;
   status?: string;
 }
 
