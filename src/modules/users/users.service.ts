@@ -16,7 +16,7 @@ export class UsersService {
     return users.map(user => ({
       id: user.id,
       name: user.name,
-      avatar: user.avatar,
+      avatarUrl: user.avatarUrl,
       status: user.status,
     }));
   }
