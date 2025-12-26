@@ -1,26 +1,49 @@
-// messages/messages.service.ts
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { CreateMessageDto } from './dto/create-message.dto';
-import { UpdateMessageDto } from './dto/update-message.dto';
 import { PrismaService } from 'src/database/prisma.service';
+import { AddReactionDto } from './dto/add-reaction.dto';
+import { RemoveReactionDto } from './dto/remove-reaction.dto';
+import { UpdateMessageDto } from './dto/update-message.dto';
+import { ChatGateway } from 'src/websocket/chat/chat.gateway';
+import { SendMessageDto, TogglePinDto } from './dto/send_message_dto';
 
 @Injectable()
 export class MessagesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private chatGateway: ChatGateway, // 👈 Injecter le gateway
+  ) {}
 
-  // Récupérer messages d'une conversation
+  // Récupérer les messages d'une conversation
   async getMessages(conversationId: string, limit = 50, offset = 0) {
-    return this.prisma.message.findMany({
+    const messages = await this.prisma.message.findMany({
       where: { conversationId },
-      skip: offset,
+      include: {
+        sender: true,
+        reactions: true,
+        readBy: true,
+      },
+      orderBy: { createdAt: 'desc' },
       take: limit,
-      orderBy: { createdAt: 'asc' },
-      include: { reactions: true, readBy: true },
+      skip: offset,
     });
+
+    return messages.map((msg) => ({
+      id: msg.id,
+      senderId: msg.senderId,
+      content: msg.content,
+      timestamp: msg.createdAt,
+      type: msg.type as 'text' | 'image' | 'file',
+      fileName: msg.fileName,
+      fileSize: msg.fileSize,
+      reactions: this.groupReactions(msg.reactions),
+      isEdited: msg.isEdited,
+      isPinned: msg.isPinned,
+      readBy: msg.readBy.map((r) => r.userId),
+    }));
   }
 
-  // Créer un message
-  async create(dto: CreateMessageDto) {
+  // Envoyer un message
+  async sendMessage(dto: SendMessageDto) {
     const message = await this.prisma.message.create({
       data: {
         conversationId: dto.conversationId,
@@ -30,58 +53,292 @@ export class MessagesService {
         fileName: dto.fileName,
         fileSize: dto.fileSize,
       },
-      include: { reactions: true, readBy: true },
+      include: {
+        sender: true,
+        reactions: true,
+        readBy: true,
+      },
     });
-    return message;
-  }
 
-  // Modifier un message
-  async update(messageId: string, dto: UpdateMessageDto) {
-    const message = await this.prisma.message.update({
-      where: { id: messageId },
-      data: { content: dto.content, isEdited: true },
-      include: { reactions: true, readBy: true },
-    });
-    if (!message) throw new NotFoundException('Message non trouvé');
-    return message;
-  }
+    const formattedMessage = {
+      id: message.id,
+      senderId: message.senderId,
+      content: message.content,
+      timestamp: message.createdAt,
+      type: message.type as 'text' | 'image' | 'file',
+      fileName: message.fileName,
+      fileSize: message.fileSize,
+      reactions: [],
+      isEdited: message.isEdited,
+      isPinned: message.isPinned,
+      readBy: [],
+    };
 
-  // Supprimer un message
-  async delete(messageId: string, conversationId: string) {
-    await this.prisma.message.deleteMany({
-      where: { id: messageId, conversationId },
-    });
+    // 🔥 Émettre le message via WebSocket
+    this.chatGateway.emitToConversation(
+      dto.conversationId,
+      'message-received',
+      { message: formattedMessage },
+    );
+
+    return formattedMessage;
   }
 
   // Ajouter une réaction
-  async addReaction(messageId: string, userId: string, emoji: string) {
-    return this.prisma.reaction.create({
-      data: { messageId, userId, emoji },
+  async addReaction(dto: AddReactionDto) {
+    const existing = await this.prisma.reaction.findUnique({
+      where: {
+        messageId_userId_emoji: {
+          messageId: dto.messageId,
+          userId: dto.userId,
+          emoji: dto.emoji,
+        },
+      },
     });
+
+    if (!existing) {
+      await this.prisma.reaction.create({
+        data: {
+          messageId: dto.messageId,
+          userId: dto.userId,
+          emoji: dto.emoji,
+        },
+      });
+    }
+
+    const updatedMessage = await this.getMessageWithDetails(dto.messageId);
+
+    // 🔥 Émettre la mise à jour via WebSocket
+    this.chatGateway.emitToConversation(
+      dto.conversationId,
+      'reaction-added',
+      { message: updatedMessage },
+    );
+
+    return updatedMessage;
   }
 
   // Retirer une réaction
-  async removeReaction(messageId: string, userId: string, emoji: string) {
-    return this.prisma.reaction.deleteMany({
-      where: { messageId, userId, emoji },
+  async removeReaction(dto: RemoveReactionDto) {
+    await this.prisma.reaction.deleteMany({
+      where: {
+        messageId: dto.messageId,
+        userId: dto.userId,
+        emoji: dto.emoji,
+      },
     });
+
+    const updatedMessage = await this.getMessageWithDetails(dto.messageId);
+
+    // 🔥 Émettre la mise à jour via WebSocket
+    const message = await this.prisma.message.findUnique({
+      where: { id: dto.messageId },
+    });
+
+    this.chatGateway.emitToConversation(
+      message!.conversationId,
+      'reaction-removed',
+      { message: updatedMessage },
+    );
+
+    return updatedMessage;
+  }
+
+  // Modifier un message
+  async editMessage(messageId: string, dto: UpdateMessageDto) {
+    const message = await this.prisma.message.update({
+      where: { id: messageId },
+      data: {
+        content: dto.content,
+        isEdited: true,
+      },
+      include: {
+        sender: true,
+        reactions: true,
+        readBy: true,
+      },
+    });
+
+    if (!message) {
+      throw new NotFoundException('Message non trouvé');
+    }
+
+    const formattedMessage = {
+      id: message.id,
+      senderId: message.senderId,
+      content: message.content,
+      timestamp: message.createdAt,
+      type: message.type as 'text' | 'image' | 'file',
+      fileName: message.fileName,
+      fileSize: message.fileSize,
+      reactions: this.groupReactions(message.reactions),
+      isEdited: message.isEdited,
+      isPinned: message.isPinned,
+      readBy: message.readBy.map((r) => r.userId),
+    };
+
+    // 🔥 Émettre la modification via WebSocket
+    this.chatGateway.emitToConversation(
+      dto.conversationId,
+      'message-edited',
+      { message: formattedMessage },
+    );
+
+    return formattedMessage;
+  }
+
+  // Supprimer un message
+  async deleteMessage(messageId: string, conversationId: string) {
+    await this.prisma.message.delete({
+      where: { id: messageId },
+    });
+
+    // 🔥 Émettre la suppression via WebSocket
+    this.chatGateway.emitToConversation(conversationId, 'message-deleted', {
+      messageId,
+    });
+  }
+
+  // Épingler/Désépingler
+  async togglePin(messageId: string, dto: TogglePinDto) {
+    const message = await this.prisma.message.update({
+      where: { id: messageId },
+      data: { isPinned: dto.isPinned },
+      include: {
+        sender: true,
+        reactions: true,
+        readBy: true,
+      },
+    });
+
+    if (!message) {
+      throw new NotFoundException('Message non trouvé');
+    }
+
+    const formattedMessage = {
+      id: message.id,
+      senderId: message.senderId,
+      content: message.content,
+      timestamp: message.createdAt,
+      type: message.type as 'text' | 'image' | 'file',
+      fileName: message.fileName,
+      fileSize: message.fileSize,
+      reactions: this.groupReactions(message.reactions),
+      isEdited: message.isEdited,
+      isPinned: message.isPinned,
+      readBy: message.readBy.map((r) => r.userId),
+    };
+
+    // 🔥 Émettre le changement via WebSocket
+    this.chatGateway.emitToConversation(dto.conversationId, 'message-pinned', {
+      message: formattedMessage,
+    });
+
+    return formattedMessage;
   }
 
   // Marquer comme lu
   async markAsRead(conversationId: string, userId: string) {
     const messages = await this.prisma.message.findMany({
       where: { conversationId },
-      include: { readBy: true },
     });
 
-    const unread = messages.filter(
-      m => !m.readBy.some(r => r.userId === userId),
-    );
+    for (const message of messages) {
+      await this.prisma.readReceipt.upsert({
+        where: {
+          messageId_userId: {
+            messageId: message.id,
+            userId,
+          },
+        },
+        create: {
+          messageId: message.id,
+          userId,
+        },
+        update: {},
+      });
+    }
 
-    await Promise.all(
-      unread.map(m =>
-        this.prisma.readReceipt.create({ data: { messageId: m.id, userId } }),
-      ),
-    );
+    // 🔥 Émettre la lecture via WebSocket
+    this.chatGateway.emitToConversation(conversationId, 'messages-read', {
+      userId,
+    });
+  }
+
+  // Rechercher dans les messages
+  async searchMessages(conversationId: string, query: string) {
+    const messages = await this.prisma.message.findMany({
+      where: {
+        conversationId,
+        content: {
+          contains: query,
+          mode: 'insensitive',
+        },
+      },
+      include: {
+        sender: true,
+        reactions: true,
+        readBy: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return messages.map((msg) => ({
+      id: msg.id,
+      senderId: msg.senderId,
+      content: msg.content,
+      timestamp: msg.createdAt,
+      type: msg.type as 'text' | 'image' | 'file',
+      fileName: msg.fileName,
+      fileSize: msg.fileSize,
+      reactions: this.groupReactions(msg.reactions),
+      isEdited: msg.isEdited,
+      isPinned: msg.isPinned,
+      readBy: msg.readBy.map((r) => r.userId),
+    }));
+  }
+
+  // Méthode privée pour récupérer un message avec tous les détails
+  private async getMessageWithDetails(messageId: string) {
+    const message = await this.prisma.message.findUnique({
+      where: { id: messageId },
+      include: {
+        sender: true,
+        reactions: true,
+        readBy: true,
+      },
+    });
+
+    if (!message) {
+      throw new NotFoundException('Message non trouvé');
+    }
+
+    return {
+      id: message.id,
+      senderId: message.senderId,
+      content: message.content,
+      timestamp: message.createdAt,
+      type: message.type as 'text' | 'image' | 'file',
+      fileName: message.fileName,
+      fileSize: message.fileSize,
+      reactions: this.groupReactions(message.reactions),
+      isEdited: message.isEdited,
+      isPinned: message.isPinned,
+      readBy: message.readBy.map((r) => r.userId),
+    };
+  }
+
+  // Grouper les réactions par emoji
+  private groupReactions(reactions: any[]) {
+    const grouped = reactions.reduce((acc, reaction) => {
+      const existing = acc.find((r: any) => r.emoji === reaction.emoji);
+      if (existing) {
+        existing.users.push(reaction.userId);
+      } else {
+        acc.push({ emoji: reaction.emoji, users: [reaction.userId] });
+      }
+      return acc;
+    }, []);
+    return grouped;
   }
 }
