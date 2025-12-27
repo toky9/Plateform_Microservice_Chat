@@ -1,4 +1,3 @@
-
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { PrismaService } from 'src/database/prisma.service';
@@ -56,7 +55,7 @@ export class ConversationsService {
         reactions: true,
         readBy: true,
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: 'asc' },
       take: limit,
       skip: offset,
     });
@@ -137,17 +136,17 @@ export class ConversationsService {
     const conversation = await this.prisma.conversation.update({
       where: { id: conversationId },
       data: { archived },
-      include: { 
+      include: {
         participants: {
-          include: { user: true }
-        } 
+          include: { user: true },
+        },
       },
     });
-    
+
     if (!conversation) {
       throw new NotFoundException('Conversation non trouvée');
     }
-    
+
     return {
       id: conversation.id,
       participants: conversation.participants.map((p) => ({
@@ -170,17 +169,17 @@ export class ConversationsService {
     const conversation = await this.prisma.conversation.update({
       where: { id: conversationId },
       data: { muted },
-      include: { 
+      include: {
         participants: {
-          include: { user: true }
-        } 
+          include: { user: true },
+        },
       },
     });
-    
+
     if (!conversation) {
       throw new NotFoundException('Conversation non trouvée');
     }
-    
+
     return {
       id: conversation.id,
       participants: conversation.participants.map((p) => ({
@@ -268,4 +267,3 @@ export class ConversationsService {
     return grouped;
   }
 }
-

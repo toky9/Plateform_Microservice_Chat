@@ -54,7 +54,7 @@ export class UploadController {
 
     // Retourner les informations du fichier
     return {
-      url: `/uploads/${file.filename}`, // URL relative
+      url: `${file.filename}`, // URL relative
       fileName: file.originalname,
       fileSize: this.formatFileSize(file.size),
     };

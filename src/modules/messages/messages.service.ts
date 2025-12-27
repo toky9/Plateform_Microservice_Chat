@@ -1,7 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/database/prisma.service';
 import { ChatGateway } from 'src/websocket/chat/chat.gateway';
-import { AddReactionDto, RemoveReactionDto, SendMessageDto, TogglePinDto, UpdateMessageDto } from './dto/send_message_dto';
+import {
+  AddReactionDto,
+  RemoveReactionDto,
+  SendMessageDto,
+  TogglePinDto,
+  UpdateMessageDto,
+} from './dto/send_message_dto';
 
 @Injectable()
 export class MessagesService {
@@ -83,34 +89,50 @@ export class MessagesService {
 
   // Ajouter une réaction
   async addReaction(dto: AddReactionDto) {
-    const existing = await this.prisma.reaction.findUnique({
+    // const existing = await this.prisma.reaction.findUnique({
+    //   where: {
+    //     messageId_userId_emoji: {
+    //       messageId: dto.messageId,
+    //       userId: dto.userId,
+    //       emoji: dto.emoji,
+    //     },
+    //   },
+    // });
+
+    // // Add reaction
+    // if (!existing) {
+    //   await this.prisma.reaction.create({
+    //     data: {
+    //       messageId: dto.messageId,
+    //       userId: dto.userId,
+    //       emoji: dto.emoji,
+    //     },
+    //   });
+    // }
+
+    // Autoriser 1 seul reaction par utilisateur donc supprimer les anciens
+    await this.prisma.reaction.deleteMany({
       where: {
-        messageId_userId_emoji: {
-          messageId: dto.messageId,
-          userId: dto.userId,
-          emoji: dto.emoji,
-        },
+        messageId: dto.messageId,
+        userId: dto.userId,
       },
     });
 
-    if (!existing) {
-      await this.prisma.reaction.create({
-        data: {
-          messageId: dto.messageId,
-          userId: dto.userId,
-          emoji: dto.emoji,
-        },
-      });
-    }
+    // Add reaction
+    await this.prisma.reaction.create({
+      data: {
+        messageId: dto.messageId,
+        userId: dto.userId,
+        emoji: dto.emoji,
+      },
+    });
 
     const updatedMessage = await this.getMessageWithDetails(dto.messageId);
 
     // 🔥 Émettre la mise à jour via WebSocket
-    this.chatGateway.emitToConversation(
-      dto.conversationId,
-      'reaction-added',
-      { message: updatedMessage },
-    );
+    this.chatGateway.emitToConversation(dto.conversationId, 'reaction-added', {
+      message: updatedMessage,
+    });
 
     return updatedMessage;
   }
@@ -175,11 +197,9 @@ export class MessagesService {
     };
 
     // 🔥 Émettre la modification via WebSocket
-    this.chatGateway.emitToConversation(
-      dto.conversationId,
-      'message-edited',
-      { message: formattedMessage },
-    );
+    this.chatGateway.emitToConversation(dto.conversationId, 'message-edited', {
+      message: formattedMessage,
+    });
 
     return formattedMessage;
   }
