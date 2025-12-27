@@ -8,6 +8,8 @@ import {
   TogglePinDto,
   UpdateMessageDto,
 } from './dto/send_message_dto';
+import { join } from 'path';
+import { unlink } from 'fs/promises';
 
 @Injectable()
 export class MessagesService {
@@ -205,15 +207,62 @@ export class MessagesService {
   }
 
   // Supprimer un message
+  // async deleteMessage(messageId: string, conversationId: string) {
+  //   await this.prisma.message.delete({
+  //     where: { id: messageId },
+  //   });
+
+  //   // 🔥 Émettre la suppression via WebSocket
+  //   this.chatGateway.emitToConversation(conversationId, 'message-deleted', {
+  //     messageId,
+  //   });
+  // }
+
   async deleteMessage(messageId: string, conversationId: string) {
-    await this.prisma.message.delete({
+    // 1. Récupérer le message
+    const message = await this.prisma.message.findUnique({
       where: { id: messageId },
     });
 
-    // 🔥 Émettre la suppression via WebSocket
+    if (!message) {
+      throw new NotFoundException('Message introuvable');
+    }
+
+    // 2. Supprimer le fichier si message de type file
+    if (
+      (message.type === 'file' || message.type === 'image') &&
+      message.fileName
+    ) {
+      const filePath = join(process.cwd(), 'uploads', message.fileName);
+
+      try {
+        await unlink(filePath);
+      } catch (err) {
+        // Log uniquement — ne pas bloquer la suppression du message
+        console.error('Erreur suppression fichier:', err.message);
+      }
+    }
+    // 3. Supprimer le message (cascade FK OK)
+
+    await this.prisma.$transaction([
+      this.prisma.reaction.deleteMany({
+        where: { messageId },
+      }),
+      this.prisma.readReceipt.deleteMany({
+        where: { messageId },
+      }),
+      this.prisma.message.delete({
+        where: { id: messageId },
+      }),
+    ]);
+
     this.chatGateway.emitToConversation(conversationId, 'message-deleted', {
       messageId,
     });
+
+    const reponse = 'Message supprimer';
+
+    return reponse;
   }
 
   // Épingler/Désépingler

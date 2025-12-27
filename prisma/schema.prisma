@@ -58,6 +58,9 @@ model Message {
   sender       User          @relation("UserMessages", fields: [senderId], references: [id])
   reactions    Reaction[]
   readBy       ReadReceipt[]
+
+  @@index([conversationId])
+  @@index([createdAt])
 }
 
 model Reaction {
@@ -66,7 +69,7 @@ model Reaction {
   userId    String
   emoji     String
 
-  message Message @relation(fields: [messageId], references: [id])
+  message Message @relation(fields: [messageId], references: [id],onDelete: Cascade )
 
   @@unique([messageId, userId, emoji])
 }
@@ -76,7 +79,9 @@ model ReadReceipt {
   messageId String
   userId    String
 
-  message Message @relation(fields: [messageId], references: [id])
+  message Message @relation(fields: [messageId], references: [id],onDelete: Cascade)
 
   @@unique([messageId, userId])
+  
+  @@index([userId])
 }

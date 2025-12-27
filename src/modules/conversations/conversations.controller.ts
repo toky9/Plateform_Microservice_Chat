@@ -1,12 +1,12 @@
-import { 
-  Body, 
-  Controller, 
-  Get, 
-  Param, 
-  Post, 
-  Put, 
-  Query, 
-  UseGuards 
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Put,
+  Query,
+  UseGuards,
 } from '@nestjs/common';
 
 import { ConversationsService } from './conversations.service';
@@ -54,8 +54,12 @@ export class ConversationsController {
 
   // Marquer comme lu
   @Post(':id/read')
-  markAsRead(@Param('id') conversationId: string, @Body('userId') userId: string) {
-    return this.service.markAsRead(conversationId, userId);
+  markAsRead(
+    @Param('id') conversationId: string,
+    @Body('userId') userId: string,
+  ) {
+    const reponse = this.service.markAsRead(conversationId, userId);
+    return reponse;
   }
 
   // Rechercher dans les messages

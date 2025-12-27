@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { PrismaService } from 'src/database/prisma.service';
 
@@ -198,25 +202,62 @@ export class ConversationsService {
   }
 
   // Marquer comme lu
-  async markAsRead(conversationId: string, userId: string) {
-    const messages = await this.prisma.message.findMany({
-      where: { conversationId },
-    });
+  // async markAsRead(conversationId: string, userId: string) {
+  //   const messages = await this.prisma.message.findMany({
+  //     where: { conversationId },
+  //   });
 
-    for (const message of messages) {
-      await this.prisma.readReceipt.upsert({
+  //   for (const message of messages) {
+  //     await this.prisma.readReceipt.upsert({
+  //       where: {
+  //         messageId_userId: {
+  //           messageId: message.id,
+  //           userId,
+  //         },
+  //       },
+  //       create: {
+  //         messageId: message.id,
+  //         userId,
+  //       },
+  //       update: {},
+  //     });
+  //   }
+  // }
+
+  async markAsRead(conversationId: string, userId: string) {
+    try {
+      const messagesToRead = await this.prisma.message.findMany({
         where: {
-          messageId_userId: {
-            messageId: message.id,
-            userId,
+          conversationId,
+          senderId: { not: userId },
+          readBy: {
+            none: { userId },
           },
         },
-        create: {
-          messageId: message.id,
-          userId,
-        },
-        update: {},
+        select: { id: true },
       });
+
+      const response = {
+        success: true,
+        readNb: messagesToRead.length,
+      };
+
+      if (messagesToRead.length === 0) {
+        return response;
+      }
+
+      await this.prisma.readReceipt.createMany({
+        data: messagesToRead.map((m) => ({
+          messageId: m.id,
+          userId,
+        })),
+        skipDuplicates: true,
+      });
+
+      return response;
+    } catch (error) {
+      console.error('❌ MarkRead Error:', error);
+      throw new InternalServerErrorException('Erreur lors du Marquer comme lu');
     }
   }
 
