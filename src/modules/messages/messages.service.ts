@@ -244,23 +244,34 @@ export class MessagesService {
     }
     // 3. Supprimer le message (cascade FK OK)
 
-    await this.prisma.$transaction([
-      this.prisma.reaction.deleteMany({
-        where: { messageId },
-      }),
-      this.prisma.readReceipt.deleteMany({
-        where: { messageId },
-      }),
-      this.prisma.message.delete({
-        where: { id: messageId },
-      }),
-    ]);
+    // ✅ UNE SEULE suppression
+    // Reaction et ReadReceipt : onDelete: Cascade
+    await this.prisma.message.delete({
+      where: { id: messageId },
+    });
+
+    // Si sans delete en cascade onDelete: Cascade
+
+    // await this.prisma.$transaction([
+    //   this.prisma.reaction.deleteMany({
+    //     where: { messageId },
+    //   }),
+    //   this.prisma.readReceipt.deleteMany({
+    //     where: { messageId },
+    //   }),
+    //   this.prisma.message.delete({
+    //     where: { id: messageId },
+    //   }),
+    // ]);
 
     this.chatGateway.emitToConversation(conversationId, 'message-deleted', {
       messageId,
     });
 
-    const reponse = 'Message supprimer';
+    const reponse = {
+      succes: true,
+      message: 'Message supprimer',
+    };
 
     return reponse;
   }
